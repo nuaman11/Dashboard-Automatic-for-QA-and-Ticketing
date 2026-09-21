@@ -1,0 +1,6 @@
+{
+  "name": "convoflow-qa-webhooks",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Step 1: bare webhook receivers for VAPI and WhatsApp, deployed on Vercel."
+}

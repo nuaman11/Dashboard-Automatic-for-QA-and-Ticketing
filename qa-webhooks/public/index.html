@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ConvoFlow QA — webhook status</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0F0F1A;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
+  .card{max-width:480px;padding:28px 32px;border:1px solid #2A2A3D;border-radius:14px;background:#141421;}
+  h1{font-size:18px;margin:0 0 6px;}
+  p{color:#9CA3AF;font-size:14px;line-height:1.6;}
+  code{background:#1C1C2E;padding:2px 6px;border-radius:5px;font-size:12.5px;}
+  .ok{color:#34D399;font-weight:600;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="ok">●</span> Deployment is live</h1>
+    <p>Webhook endpoints on this project:</p>
+    <p><code>/api/webhook-vapi</code> — VAPI Server URL</p>
+    <p><code>/api/webhook-whatsapp</code> — Meta WhatsApp Cloud API webhook</p>
+    <p><code>/api/tickets</code> — placeholder ticket list (not persistent yet)</p>
+    <p>See <code>README.md</code> in the project for how to point VAPI and WhatsApp at this deployment.</p>
+  </div>
+</body>
+</html>
