@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ConvoFlow — Live Tickets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F0F1A; --panel:#141421; --panel2:#1C1C2E; --border:#2A2A3D;
+    --text:#FFFFFF; --sub:#9CA3AF; --muted:#6B7280;
+    --pink:#EC4899; --pink2:#F472B6;
+    --green:#16A34A; --greenBg:rgba(22,163,74,.14);
+    --red:#EF4444; --redBg:rgba(239,68,68,.14);
+    --amber:#F59E0B; --amberBg:rgba(245,158,11,.14);
+    --blue:#3B82F6; --blueBg:rgba(59,130,246,.14);
+    --gray:#6B7280; --grayBg:rgba(107,114,128,.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Outfit,system-ui,sans-serif;font-size:14px;
+    padding:20px 22px 60px;padding-top:calc(20px + env(safe-area-inset-top,0px));}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:1100px;margin:0 auto;}
+  .headline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .brand{font-size:19px;font-weight:700;}
+  .brand span{color:var(--pink);}
+  .badge-live{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--greenBg);color:#86EFAC;display:inline-flex;align-items:center;gap:6px;}
+  .dot-pulse{width:6px;height:6px;border-radius:999px;background:#86EFAC;animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .sub{color:var(--sub);font-size:13px;margin-top:4px;}
+  .chip{padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--sub);}
+  .chip.on{background:rgba(236,72,153,.15);color:var(--pink2);border-color:rgba(236,72,153,.4);}
+  .card{border:1px solid var(--border);border-radius:14px;background:var(--panel);overflow:hidden;}
+  .trow{display:grid;grid-template-columns:120px 2fr .9fr 1.1fr 1fr .7fr;gap:10px;padding:13px 16px;align-items:center;border-bottom:1px solid #1C1C2E;cursor:pointer;font-size:13px;}
+  .trow.head{cursor:default;background:var(--panel2);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--sub);font-weight:700;}
+  .trow:hover:not(.head){background:#171726;}
+  .sevbadge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
+  .statusbadge{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;font-weight:600;font-size:12.5px;cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--text);}
+  .btn.primary{background:var(--pink);border-color:var(--pink);color:#fff;}
+  .assignlist{margin-top:8px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#0F0F1A;}
+  .assignrow{padding:9px 12px;cursor:pointer;}
+  .assignrow:hover{background:var(--panel2);}
+  .detail{padding:16px 20px 20px;background:#0F0F1A;border-top:1px solid #1C1C2E;font-size:13px;}
+  .detail b{color:var(--sub);}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="headline">
+    <div class="brand">Convo<span>Flow</span> — Live</div>
+    <span class="badge-live"><span class="dot-pulse"></span>Connected to real backend</span>
+  </div>
+  <div class="sub" id="statusline">Loading tickets…</div>
+
+  <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap" id="filters"></div>
+  <div class="card" style="margin-top:14px" id="table"></div>
+</div>
+
+<script>
+const TEAM = [
+  { id:'priya', name:'Priya N.' },
+  { id:'diego', name:'Diego R.' },
+  { id:'mei',   name:'Mei L.' },
+];
+const SEV = {
+  Blocker:{bg:'var(--redBg)', color:'#FCA5A5'},
+  Major:{bg:'var(--amberBg)', color:'#FCD34D'},
+  Minor:{bg:'var(--grayBg)', color:'#D1D5DB'}
+};
+const STATUS_COLOR = {
+  Unassigned:{bg:'var(--grayBg)', color:'#D1D5DB'},
+  Open:{bg:'rgba(236,72,153,.15)', color:'#F9A8D4'},
+  'In Progress':{bg:'var(--blueBg)', color:'#93C5FD'},
+  Fixed:{bg:'var(--amberBg)', color:'#FCD34D'},
+  Verified:{bg:'var(--greenBg)', color:'#86EFAC'},
+  Reopened:{bg:'var(--redBg)', color:'#FCA5A5'}
+};
+
+let tickets = [];
+let filter = 'All';
+let expanded = null;
+let assignOpenFor = null;
+
+async function loadTickets(){
+  try {
+    const res = await fetch('/api/tickets');
+    const data = await res.json();
+    tickets = data.tickets || [];
+    document.getElementById('statusline').textContent =
+      tickets.length + ' ticket' + (tickets.length===1?'':'s') + ' · refreshing every 10s';
+  } catch(e){
+    document.getElementById('statusline').textContent = 'Could not reach /api/tickets — check the console.';
+    console.error(e);
+  }
+  render();
+}
+
+async function patchTicket(id, patch){
+  await fetch('/api/tickets', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...patch })
+  });
+  await loadTickets();
+}
+
+function filtered(){
+  return filter === 'All' ? tickets : tickets.filter(t => t.status === filter);
+}
+
+function renderFilters(){
+  const statuses = ['All','Unassigned','Open','In Progress','Fixed','Verified','Reopened'];
+  document.getElementById('filters').innerHTML = statuses.map(s => {
+    const n = s === 'All' ? tickets.length : tickets.filter(t=>t.status===s).length;
+    return `<div class="chip ${filter===s?'on':''}" onclick="setFilter('${s}')">${s} ${n}</div>`;
+  }).join('');
+}
+
+function setFilter(s){ filter = s; render(); }
+function toggleExpand(id){ expanded = expanded===id ? null : id; render(); }
+function toggleAssign(id){ assignOpenFor = assignOpenFor===id ? null : id; render(); }
+
+function assigneeCell(t){
+  if (t.assignee && assignOpenFor !== t.id) {
+    return `<span onclick="event.stopPropagation();toggleAssign('${t.id}')" style="cursor:pointer">${t.assignee}</span>`;
+  }
+  if (assignOpenFor === t.id) {
+    return `<div onclick="event.stopPropagation()">
+      <div class="btn" style="padding:5px 10px;font-size:11px" onclick="toggleAssign('${t.id}')">Cancel</div>
+      <div class="assignlist">
+        ${TEAM.map(p => `<div class="assignrow" onclick="assignTo('${t.id}','${p.name}')">${p.name}</div>`).join('')}
+      </div>
+    </div>`;
+  }
+  return `<div class="btn primary" style="padding:5px 12px;font-size:11.5px" onclick="event.stopPropagation();toggleAssign('${t.id}')">Assign</div>`;
+}
+
+function assignTo(id, name){
+  assignOpenFor = null;
+  patchTicket(id, { assignee: name, status: 'Open' });
+}
+
+function actionButtons(t){
+  const b = (label, status) => `<div class="btn" onclick="event.stopPropagation();patchTicket('${t.id}',{status:'${status}'})">${label}</div>`;
+  if (t.status === 'Unassigned') return `<span style="color:var(--muted);font-size:12.5px">Assign before work can start.</span>`;
+  if (t.status === 'Open') return b('Start progress', 'In Progress');
+  if (t.status === 'In Progress') return b('Mark fixed', 'Fixed');
+  if (t.status === 'Fixed') return b('Verify — pass', 'Verified') + ' ' + b('Verify — fail', 'Reopened');
+  if (t.status === 'Reopened') return b('Start progress', 'In Progress');
+  return `<span style="color:var(--muted);font-size:12.5px">Verified — no further action.</span>`;
+}
+
+function render(){
+  renderFilters();
+  const rows = filtered();
+  const head = `<div class="trow head"><div>ID</div><div>Issue</div><div>Severity</div><div>Assignee</div><div>Status</div><div>Retests</div></div>`;
+  if (rows.length === 0) {
+    document.getElementById('table').innerHTML = head + `<div class="empty">No tickets in this view yet. Make a test call in VAPI and it'll show up here within 10 seconds.</div>`;
+    return;
+  }
+  document.getElementById('table').innerHTML = head + rows.map(t => {
+    const sc = STATUS_COLOR[t.status];
+    const open = expanded === t.id;
+    return `<div>
+      <div class="trow" onclick="toggleExpand('${t.id}')">
+        <div class="mono">${t.id}</div>
+        <div>${t.issue}</div>
+        <div><span class="sevbadge" style="background:${SEV[t.severity].bg};color:${SEV[t.severity].color}">${t.severity}</span></div>
+        <div>${assigneeCell(t)}</div>
+        <div><span class="statusbadge" style="background:${sc.bg};color:${sc.color}">${t.status}</span></div>
+        <div class="mono" style="color:var(--sub)">${t.retests}</div>
+      </div>
+      ${open ? `<div class="detail">
+        <div><b>Expected:</b> ${t.expected}</div>
+        <div style="margin-top:6px"><b>Actual:</b> ${t.actual}</div>
+        <div style="margin-top:6px"><b>Tester note:</b> ${t.testerNote || '—'}</div>
+        <div style="margin-top:12px">${actionButtons(t)}</div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+loadTickets();
+setInterval(loadTickets, 10000);
+</script>
+</body>
+</html>
