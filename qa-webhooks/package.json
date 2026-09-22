@@ -1,0 +1,9 @@
+{
+  "name": "convoflow-qa-webhooks",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Webhook receivers for VAPI and WhatsApp, now with real Redis-backed ticket storage.",
+  "dependencies": {
+    "redis": "^4.7.0"
+  }
+}
